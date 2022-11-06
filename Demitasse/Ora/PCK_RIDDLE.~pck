@@ -9,8 +9,8 @@ create or replace package PCK_RIDDLE is
   procedure main_loop;
   procedure tick;
   procedure read_shapes;
-  function turn_left(p_shape t_riddle_table) return t_riddle_table;
-  function turn_right(p_shape t_riddle_table) return t_riddle_table;
+  function turn_left/*(p_shape t_riddle_table)*/ return t_riddle_table;
+  function turn_right/*(p_shape t_riddle_table)*/ return t_riddle_table;
   procedure move_left;
   procedure move_right;
   procedure print_shape(p_shape t_riddle_table) ;
@@ -21,7 +21,7 @@ create or replace package PCK_RIDDLE is
   procedure set_shape;
   function get_gameplay_xml return varchar2;
   
-    function getXX return int;
+   -- function getXX return int;
   
 end PCK_RIDDLE;
 /
@@ -33,8 +33,8 @@ create or replace package body PCK_RIDDLE is
   
   v_shapes t_shapes:=t_shapes();
   
-XX int;
-YY int;
+  XX int:=1;
+  YY int:=0;
   
   LEFT_BORDER constant int:=0;
   RIGHT_BORDER constant int:=10;
@@ -117,33 +117,33 @@ YY int;
     YY:=YY+1;  
   end;
   
-  function turn_left(p_shape t_riddle_table) return t_riddle_table
+  procedure turn_left
     is
     v_boxsize int:=3;
-    v_shape t_riddle_table;
+    --v_shape t_riddle_table;
     begin
       select new t_riddle(qq.id, qq.y, v_boxsize-qq.x) 
-        bulk collect into v_shape
-        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) qq;
+        bulk collect into v_riddle
+        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_riddle) q) qq;
     return v_shape;    
     end;  
     
-  function turn_right(p_shape t_riddle_table) return t_riddle_table
+  procedure turn_right
     is
     v_boxsize int:=3;
-    v_shape t_riddle_table;
+    --v_shape t_riddle_table;
     begin
       select new t_riddle(qq.id, v_boxsize-qq.y, qq.x) 
-        bulk collect into v_shape
-        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) qq;
+        bulk collect into v_riddle
+        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_riddle) q) qq;
     return v_shape;    
     end;  
   
-  function getXX return int
+/*  function getXX return int
     is
     begin
       return XX;
-    end;    
+    end; */   
     
   procedure move_left
     is
@@ -154,10 +154,8 @@ YY int;
   procedure move_right
     is
     begin
-      --raise_application_error(-20001, 'kokoko!!!');
       XX:=XX+1;
-      --XX:=20;      
-    end;  
+      end;  
     
   procedure print_shape(p_shape t_riddle_table) 
     is
@@ -260,7 +258,7 @@ YY int;
   res varchar2(3000);
   begin
     with sh as (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_riddle) q),
-         st as ( select value(q).id as id, value(q).x as x, value(q).y as y from table(v_still) q)
+         st as (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_still) q)
     
     select xmlelement("gameplay",
                       xmlagg(q.val)).getStringVal()
@@ -294,7 +292,5 @@ YY int;
     
 begin
   null;
-  XX :=1;
-  YY :=0;
 end PCK_RIDDLE;
 /

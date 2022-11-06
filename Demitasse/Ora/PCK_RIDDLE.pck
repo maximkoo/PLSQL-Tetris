@@ -9,8 +9,8 @@ create or replace package PCK_RIDDLE is
   procedure main_loop;
   procedure tick;
   procedure read_shapes;
-  function turn_left(p_shape t_riddle_table) return t_riddle_table;
-  function turn_right(p_shape t_riddle_table) return t_riddle_table;
+  procedure turn_left;
+  procedure turn_right;
   procedure move_left;
   procedure move_right;
   procedure print_shape(p_shape t_riddle_table) ;
@@ -117,26 +117,26 @@ create or replace package body PCK_RIDDLE is
     YY:=YY+1;  
   end;
   
-  function turn_left(p_shape t_riddle_table) return t_riddle_table
+  procedure turn_left
     is
     v_boxsize int:=3;
-    v_shape t_riddle_table;
+    --v_shape t_riddle_table;
     begin
       select new t_riddle(qq.id, qq.y, v_boxsize-qq.x) 
-        bulk collect into v_shape
-        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) qq;
-    return v_shape;    
+        bulk collect into v_riddle
+        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_riddle) q) qq;
+    --return v_shape;    
     end;  
     
-  function turn_right(p_shape t_riddle_table) return t_riddle_table
+  procedure turn_right
     is
     v_boxsize int:=3;
-    v_shape t_riddle_table;
+    --v_shape t_riddle_table;
     begin
       select new t_riddle(qq.id, v_boxsize-qq.y, qq.x) 
-        bulk collect into v_shape
-        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) qq;
-    return v_shape;    
+        bulk collect into v_riddle
+        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_riddle) q) qq;
+    --return v_shape;    
     end;  
   
 /*  function getXX return int

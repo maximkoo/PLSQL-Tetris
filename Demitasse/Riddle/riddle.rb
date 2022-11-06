@@ -18,9 +18,10 @@ BLOCK_SIZE=20
 class GameWindow<Gosu::Window    
     SCREEN_WIDTH=Gosu.screen_width;
     SCREEN_HEIGHT=Gosu.screen_height;
-    def initialize       
-        @xx=1
-        @yy=0
+    attr_reader :oci     
+    def initialize          
+        #@xx=1
+        #@yy=0
         $window_width=600
         $window_height=600;
         @red20=Gosu::Image.new('red20.png');
@@ -37,6 +38,13 @@ class GameWindow<Gosu::Window
             @width=b.xpath('/initial/width/text()').to_s.to_i  
             @height=b.xpath('/initial/height/text()').to_s.to_i  
         end;
+        #b=getXML
+        #shape=Shape.new do |i, b|
+        #    i.setBlocks(b)
+        #end;
+        @shape=Shape.new(self)
+        #@shape.master=self
+
         super($window_width,$window_height, true)       
     end;
 
@@ -51,38 +59,47 @@ class GameWindow<Gosu::Window
 
         if id==Gosu::KbRight            
             @oci.exec('begin riddle.pck_riddle.move_right(); end;');       
-            getXML();
+            #getXML();
+            @shape.move
         end;
 
         if id==Gosu::KbLeft
             @oci.exec('begin riddle.pck_riddle.move_left(); end;'); 
-            getXML();      
+            #getXML();
+            @shape.move
         end;        
+
+        if id==Gosu::KbUp
+            @oci.exec('begin riddle.pck_riddle.turn_right(); end;'); 
+            #getXML();
+            @shape.turn
+        end; 
     end;
 
-    def getXML
-        @oci.exec('select riddle.pck_riddle.get_gameplay_xml from dual') do |record|
-            puts record[0]
-            #puts record.class.name
-            a=record[0]  
-            #puts a          
-            #b=Nokogiri::XML(a)
-            b=Nokogiri::XML.parse(a);
+    # def move_shape
+    #     b=getXML
+    #     @xx=b.xpath('/gameplay/shape/x/text()').to_s.to_i
+    #     @yy=b.xpath('/gameplay/shape/y/text()').to_s.to_i
+    # end
+    
+    # def turn_shape
+    #     b=getXML
+    #     shapeXML=b.xpath('/gameplay/shape/blocks/block');
+    #     shapeXML.each do |i|
+    #         puts "#{i.attributes['X']} #{i.attributes['X']}" #--------<<!!!
 
-            @xx=b.xpath('/gameplay/shape/x/text()').to_s.to_i
-            @yy=b.xpath('/gameplay/shape/y/text()').to_s.to_i
-            shapeXML=b.xpath('/gameplay/shape');
- 
-            #puts @xx, @yy             
-        end; 
-    end;        
+
+    #     end;    
+    # end;           
 
     def update
         now=Gosu.milliseconds
         return if (now-@last_update||=now) < @frame_delay
         #@objectPool.objects.map(&:update);     
         @oci.exec('begin riddle.pck_riddle.tick(); end;');  
-        getXML();
+        #getXML();
+        #move_shape;
+        @shape.move
         
         @last_update=now;
     end;
@@ -90,7 +107,7 @@ class GameWindow<Gosu::Window
     def draw
         @objectPool.objects.map(&:draw)   
         #@red20.draw(@xx*BLOCK_SIZE, @yy*BLOCK_SIZE,0)
-        draw_rect(@xx*BLOCK_SIZE, @yy*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, Gosu::Color.argb(0xff_ff0000), 0);
+        draw_rect(@shape.xx*BLOCK_SIZE, @shape.yy*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, Gosu::Color.argb(0xff_ff0000), 0);
         #@objectPool.draw()  
     end;
 end;  
@@ -107,12 +124,56 @@ class Cube
 end;
 
 class Shape
-    blocks=[]
+    attr_accessor :master, :blocks, :xx, :yy
+    #def initialize(i, b)      
+    #    @blocks=[]
+    #    yield(self, b)
+    #end;
     #blocks<<{x:0, y:0}
+    def initialize(master)
+        @master=master
+        @blocks=[]
+        @b=getXML
+        setBlocks(@b)
+        @xx=1
+        @yy=0
+    end;    
 
     def draw
+        
+    end; 
 
-    end;    
+    def getXML
+        @master.oci.exec('select riddle.pck_riddle.get_gameplay_xml from dual') do |record|
+            puts record[0]
+            #puts record.class.name
+            a=record[0]  
+            #puts a          
+            #b=Nokogiri::XML(a)
+            b=Nokogiri::XML.parse(a); 
+            #puts @xx, @yy             
+            return b
+        end; 
+    end;   
+
+    def setBlocks(b)
+        @blocks.clear()
+        shapeXML=b.xpath('/gameplay/shape/blocks/block');
+        shapeXML.each do |i|
+            puts "#{i.attributes['X']} #{i.attributes['X']}" #--------<<!!!
+            @blocks<<{x:i.attributes['X'], y:i.attributes['Y']}
+        end    
+    end;  
+    
+    def move
+        b=getXML
+        @xx=b.xpath('/gameplay/shape/x/text()').to_s.to_i
+        @yy=b.xpath('/gameplay/shape/y/text()').to_s.to_i
+    end 
+
+    def turn
+
+    end;  
 end;    
 
 class ObjectPool
