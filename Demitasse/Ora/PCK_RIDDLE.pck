@@ -5,17 +5,21 @@ create or replace package PCK_RIDDLE is
   -- Created : 30.10.2022 18:55:51
   -- Purpose : Riddle project
   
+  v_riddle t_riddle_table;
+  
   function get_initial_xml return varchar2;
-  procedure main_loop;
+  /*procedure main_loop;*/
   procedure tick;
   procedure read_shapes;
   procedure turn_left;
+  function turn_left(p_shape t_riddle_table) return t_riddle_table;
   procedure turn_right;
+  function turn_right(p_shape t_riddle_table) return t_riddle_table;
   procedure move_left;
   procedure move_right;
   procedure print_shape(p_shape t_riddle_table) ;
   procedure print_shape_data(p_shape t_riddle_table);
-  function overlap(p_shape t_riddle_table, p_still t_riddle_table) return integer;
+  --function overlap(p_shape t_riddle_table, p_still t_riddle_table) return integer;
   procedure drop_still_lines(p_still in out t_riddle_table) ;
   procedure fall;
   procedure set_shape;
@@ -27,18 +31,21 @@ end PCK_RIDDLE;
 /
 create or replace package body PCK_RIDDLE is
 --pragma serially_reusable;
-
-  v_riddle t_riddle_table;
-  v_still t_riddle_table:=t_riddle_table();
   
+  v_model t_riddle_table:=t_riddle_table();
+  v_still t_riddle_table:=t_riddle_table();
   v_shapes t_shapes:=t_shapes();
   
   XX int:=1;
   YY int:=0;
   
+  v_model_x int:=XX;
+  v_model_y int:=YY;
+  
   LEFT_BORDER constant int:=0;
-  RIGHT_BORDER constant int:=10;
-  BOTTOM constant int:=20;
+  RIGHT_BORDER constant int:=11;
+  --WIDTH constant:=10;  
+  BOTTOM constant int:=21;
   
   function get_initial_xml return varchar2
     is 
@@ -55,7 +62,7 @@ create or replace package body PCK_RIDDLE is
       return res;
     end;
   
-  procedure main_loop
+  /*procedure main_loop
   is
   v_ts timestamp:=systimestamp;
   v_tact number:=1; --0.1;
@@ -68,7 +75,7 @@ create or replace package body PCK_RIDDLE is
         v_ts:=systimestamp;
       end if;
     end loop;
-  end;
+  end;*/
   
   procedure tick
     is
@@ -109,53 +116,12 @@ create or replace package body PCK_RIDDLE is
     begin
       dbms_output.put_line('The shape is set');
       v_riddle:=random_shape();
+      v_model:=v_riddle;
     end;
   
-  procedure fall
-  is
-  begin
-    YY:=YY+1;  
-  end;
   
-  procedure turn_left
-    is
-    v_boxsize int:=3;
-    --v_shape t_riddle_table;
-    begin
-      select new t_riddle(qq.id, qq.y, v_boxsize-qq.x) 
-        bulk collect into v_riddle
-        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_riddle) q) qq;
-    --return v_shape;    
-    end;  
-    
-  procedure turn_right
-    is
-    v_boxsize int:=3;
-    --v_shape t_riddle_table;
-    begin
-      select new t_riddle(qq.id, v_boxsize-qq.y, qq.x) 
-        bulk collect into v_riddle
-        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(v_riddle) q) qq;
-    --return v_shape;    
-    end;  
   
-/*  function getXX return int
-    is
-    begin
-      return XX;
-    end; */   
     
-  procedure move_left
-    is
-    begin
-      XX:=XX-1;
-    end;  
-    
-  procedure move_right
-    is
-    begin
-      XX:=XX+1;
-      end;  
     
   procedure print_shape(p_shape t_riddle_table) 
     is
@@ -189,8 +155,8 @@ create or replace package body PCK_RIDDLE is
         end loop;
         dbms_output.new_line(); 
      end;   
-     
-  function overlap(p_shape t_riddle_table, p_still t_riddle_table) return integer
+  
+  function overlap(p_shape t_riddle_table, p_still t_riddle_table, p_x in integer, p_y in integer) return integer
     is
     res integer;
     begin
@@ -200,34 +166,128 @@ create or replace package body PCK_RIDDLE is
        from dual where exists
        (select * from shape sh
         inner join still st
-           on sh.x=st.x
-          and sh.y=st.y);
+           on p_x+sh.x=st.x
+          and p_y+sh.y=st.y);
       return res;    
     end;   
     
-  function hit_left(p_shape t_riddle_table) return integer
+  function hit_left(p_shape t_riddle_table, p_x in integer) return integer
     is
     begin
       for i in (with sh as (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) 
                  select count(*) as cnt from dual
-                  where exists(select sh.* from sh where sh.x<=LEFT_BORDER)
+                  where exists(select sh.* from sh where p_x+sh.x<=LEFT_BORDER)
                 )
       loop
         return i.cnt;
       end loop;      
     end;   
 
-  function hit_right(p_shape t_riddle_table) return integer
+  function hit_right(p_shape t_riddle_table, p_x in integer) return integer
     is
     begin
       for i in (with sh as (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) 
                  select count(*) as cnt from dual
-                  where exists(select sh.* from sh where sh.x>=RIGHT_BORDER)
+                  where exists(select sh.* from sh where p_x+sh.x>=RIGHT_BORDER)
                 )
       loop
         return i.cnt;
       end loop;      
+    end; 
+    
+  function hit_bottom(p_shape t_riddle_table, p_y in integer) return integer
+    is
+    begin
+      for i in (with sh as (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) 
+                 select count(*) as cnt from dual
+                  where exists(select sh.* from sh where p_y+sh.y>=BOTTOM)
+                )
+      loop
+        return i.cnt;
+      end loop;  
+    end;     
+  
+  function can_do(p_shape t_riddle_table, p_x in integer, p_y in integer) return integer
+    is
+    begin
+      if overlap(p_shape, v_still, p_x, p_y)=0 and
+         hit_left(p_shape, p_x)=0 and
+         hit_right(p_shape, p_x)=0 and
+         hit_bottom(p_shape, p_y)=0 
+      then
+        return 0;
+      else
+        return 1;
+      end if;      
+      
+    end;
+    
+  procedure fall
+  is
+  begin
+    v_model_y:=v_model_y+1;
+    if can_do(v_model, v_model_x, v_model_y)=0 then
+      YY:=v_model_y;
+    else
+      v_model_y:=YY;
+    end if;   
+  end;
+  
+   procedure move_left
+    is
+    begin
+      v_model_x:=v_model_x-1;
+      if can_do(v_model, v_model_x, v_model_y)=0 then
+        XX:=v_model_x;
+      else 
+        v_model_x:=XX;
+      end if;  
+    end;  
+    
+  procedure move_right
+    is
+    begin
+      v_model_x:=v_model_x+1;
+      if can_do(v_model, v_model_x, v_model_y)=0 then
+        XX:=XX+1;
+      end if;
+    end;  
+  
+  procedure turn_left
+    is
+    begin
+      v_riddle:=turn_left(v_riddle);
     end;    
+  
+  function turn_left(p_shape t_riddle_table) return t_riddle_table
+    is
+    v_boxsize int:=3;
+    v_shape t_riddle_table;
+    begin
+      select new t_riddle(qq.id, qq.y, v_boxsize-qq.x) 
+        bulk collect into v_shape
+        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) qq;
+    return v_shape;    
+    end;
+    
+  procedure turn_right
+    is
+    begin
+      v_riddle:=turn_right(v_riddle);
+    end;     
+    
+  function turn_right(p_shape t_riddle_table) return t_riddle_table
+    is
+    v_boxsize int:=3;
+    v_shape t_riddle_table;
+    begin
+      select new t_riddle(qq.id, v_boxsize-qq.y, qq.x) 
+        bulk collect into v_shape
+        from (select value(q).id as id, value(q).x as x, value(q).y as y from table(p_shape) q) qq;
+    return v_shape;    
+    end;  
+  
+ 
        
   procedure drop_still_lines(p_still in out t_riddle_table) 
     is

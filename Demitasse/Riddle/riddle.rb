@@ -34,7 +34,9 @@ class GameWindow<Gosu::Window
             a=record[0]  
             #puts a          
             b=Nokogiri::XML(a)
-            @frame_delay=b.xpath('/initial/frame-delay/text()').to_s.to_i
+            #@frame_delay=b.xpath('/initial/frame-delay/text()').to_s.to_i
+            @frame_delay=250
+            @key_delay=50
             @width=b.xpath('/initial/width/text()').to_s.to_i  
             @height=b.xpath('/initial/height/text()').to_s.to_i  
         end;
@@ -57,23 +59,23 @@ class GameWindow<Gosu::Window
             close       
         end;
 
-        if id==Gosu::KbRight            
-            @oci.exec('begin riddle.pck_riddle.move_right(); end;');       
-            #getXML();
-            @shape.move
-        end;
+    #     if id==Gosu::KbRight            
+    #         @oci.exec('begin riddle.pck_riddle.move_right(); end;');       
+    #         #getXML();
+    #         @shape.move
+    #     end;
 
-        if id==Gosu::KbLeft
-            @oci.exec('begin riddle.pck_riddle.move_left(); end;'); 
-            #getXML();
-            @shape.move
-        end;        
+    #     if id==Gosu::KbLeft
+    #         @oci.exec('begin riddle.pck_riddle.move_left(); end;'); 
+    #         #getXML();
+    #         @shape.move
+    #     end;        
 
-        if id==Gosu::KbUp
-            @oci.exec('begin riddle.pck_riddle.turn_right(); end;'); 
-            #getXML();
-            @shape.turn
-        end; 
+    #     if id==Gosu::KbUp
+    #         @oci.exec('begin riddle.pck_riddle.turn_right(); end;'); 
+    #         #getXML();
+    #         @shape.turn
+    #     end; 
     end;
 
     # def move_shape
@@ -92,22 +94,41 @@ class GameWindow<Gosu::Window
     #     end;    
     # end;           
 
-    def update
-        now=Gosu.milliseconds
-        return if (now-@last_update||=now) < @frame_delay
-        #@objectPool.objects.map(&:update);     
-        @oci.exec('begin riddle.pck_riddle.tick(); end;');  
-        #getXML();
-        #move_shape;
-        @shape.move
+    # def update
+    #     #@shape.keyControl;
+    #     now=Gosu.milliseconds
+    #     return if (now-@last_update||=now) < @frame_delay
+    #     #@objectPool.objects.map(&:update);     
+    #     @oci.exec('begin riddle.pck_riddle.tick(); end;');  
+    #     #getXML();
+    #     #move_shape;
+    #     @shape.move
         
-        @last_update=now;
-    end;
+    #     @last_update=now;
+    # end;
+
+    def update
+        tick_now=Gosu.milliseconds
+        key_now=Gosu.milliseconds
+        if (tick_now-@last_tick_update||=0) >= @frame_delay
+            #puts "TICK #{tick_now} #{@last_tick_update} #{tick_now-@last_tick_update}"
+            @oci.exec('begin riddle.pck_riddle.tick(); end;');  
+            @shape.move
+            @last_tick_update=tick_now;
+            
+        end;
+        if (key_now-@last_key_update||=0) >= @key_delay
+           @shape.keyControl
+           @last_key_update=key_now
+           puts "KEY"
+        end;
+    end;    
 
     def draw
         @objectPool.objects.map(&:draw)   
         #@red20.draw(@xx*BLOCK_SIZE, @yy*BLOCK_SIZE,0)
-        draw_rect(@shape.xx*BLOCK_SIZE, @shape.yy*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, Gosu::Color.argb(0xff_ff0000), 0);
+        #draw_rect(@shape.xx*BLOCK_SIZE, @shape.yy*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, Gosu::Color.argb(0xff_ff0000), 0);
+        @shape.draw;
         #@objectPool.draw()  
     end;
 end;  
@@ -140,7 +161,14 @@ class Shape
     end;    
 
     def draw
-        
+        @blocks.each do |blk|
+            @master.draw_rect(@xx*BLOCK_SIZE+blk[:x]*BLOCK_SIZE, 
+                      @yy*BLOCK_SIZE+blk[:y]*BLOCK_SIZE, 
+                      BLOCK_SIZE, 
+                      BLOCK_SIZE, 
+                      Gosu::Color.argb(0xff_ff0000), 
+                      0);
+        end;    
     end; 
 
     def getXML
@@ -160,10 +188,29 @@ class Shape
         @blocks.clear()
         shapeXML=b.xpath('/gameplay/shape/blocks/block');
         shapeXML.each do |i|
-            puts "#{i.attributes['X']} #{i.attributes['X']}" #--------<<!!!
-            @blocks<<{x:i.attributes['X'], y:i.attributes['Y']}
+            puts "#{i.attr('X')} #{i.attr('Y')}" #--------<<!!!
+            @blocks<<{:x=>i.attr('X').to_i, :y=>i.attr('Y').to_i}
         end    
     end;  
+
+    def keyControl
+        if @master.button_down?(Gosu::KbRight)
+            @master.oci.exec('begin riddle.pck_riddle.move_right(); end;');       
+            #getXML();
+            move
+        end;    
+        if @master.button_down?(Gosu::KbLeft)
+            @master.oci.exec('begin riddle.pck_riddle.move_left(); end;');       
+            #getXML();
+            move
+        end; 
+        if @master.button_down?(Gosu::KbUp)
+            @master.oci.exec('begin riddle.pck_riddle.turn_right ; end;');
+            #getXML();
+            turn
+        end;
+    end;
+
     
     def move
         b=getXML
@@ -172,7 +219,8 @@ class Shape
     end 
 
     def turn
-
+        b=getXML
+        setBlocks(b)
     end;  
 end;    
 
@@ -183,9 +231,9 @@ class ObjectPool
         @gray20=Gosu::Image.new('gray20.png');
         (0..19).each do |i|
             @objects<<Cube.new(0,i,@gray20)
-            @objects<<Cube.new(10,i,@gray20)
+            @objects<<Cube.new(11,i,@gray20)
         end; 
-        (0..10).each do |i|
+        (0..11).each do |i|
             @objects<<Cube.new(i,20,@gray20)
         end;    
     end;
