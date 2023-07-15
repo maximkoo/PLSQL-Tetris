@@ -120,7 +120,7 @@ class GameWindow<Gosu::Window
         if (key_now-@last_key_update||=0) >= @key_delay
            @shape.keyControl
            @last_key_update=key_now
-           puts "KEY"
+           #puts "KEY"
         end;
     end;    
 
@@ -216,6 +216,7 @@ class Shape
         b=getXML
         @xx=b.xpath('/gameplay/shape/x/text()').to_s.to_i
         @yy=b.xpath('/gameplay/shape/y/text()').to_s.to_i
+        setBlocks(b)
     end 
 
     def turn
